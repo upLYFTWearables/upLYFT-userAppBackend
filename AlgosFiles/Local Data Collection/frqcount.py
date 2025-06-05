@@ -1,61 +1,48 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib as mpl
-import seaborn as sns
+import matplotlib.cm as cm
 
-# Optional: Seaborn theme for a modern look
-sns.set_theme(style="whitegrid")
+# Load the CSV file
+df = pd.read_csv("AlgosFiles/Local Data Collection/bluetooth_data_20250604_130502.csv")  # Update path as needed
 
-# Load and clean the CSV
-file_path = "AlgosFiles/Test_20250530124006.csv"
-df = pd.read_csv(file_path, on_bad_lines='skip')
+# Convert timestamp to datetime format
+df['Timestamp'] = pd.to_datetime(df['Timestamp'], format="%H:%M:%S:%f")
+df['Timestamp_sec'] = df['Timestamp'].dt.floor('S')
 
-# Filter rows with IMU values
-df = df[df['IMU'].astype(str).str.contains('IMU', na=False)]
+# Group by IMU and timestamp to count frequency per second
+frequency_over_time = df.groupby(['IMU', 'Timestamp_sec']).size().reset_index(name='Frequency')
 
-# Parse timestamps
-df['Timestamp'] = pd.to_datetime(df['Timestamp'], format='%H:%M:%S', errors='coerce')
-df = df.dropna(subset=['Timestamp'])
+# Get unique IMUs and assign unique colors
+unique_imus = sorted(frequency_over_time['IMU'].unique())
+n = len(unique_imus)
+colors = cm.get_cmap('tab10', n)
 
-# Group per second
-df['Time_Second'] = df['Timestamp'].dt.strftime('%H:%M:%S')
-frequency = df.groupby(['Time_Second', 'IMU']).size().unstack(fill_value=0)
+# Create subplots
+fig, axs = plt.subplots(n, 1, figsize=(16, 3 * n), sharex=True)
 
-# Plot setup
-imu_list = frequency.columns
-num_imus = len(imu_list)
-fig, axs = plt.subplots(num_imus, 1, figsize=(16, 4.5 * num_imus), sharex=True)
+for i, imu in enumerate(unique_imus):
+    imu_data = frequency_over_time[frequency_over_time['IMU'] == imu]
+    color = colors(i)
 
-if num_imus == 1:
-    axs = [axs]
+    # Calculate average frequency
+    avg_freq = imu_data["Frequency"].mean()
+    total_samples = df[df["IMU"] == imu].shape[0]
 
-colors = sns.color_palette("Set2", n_colors=num_imus)
+    axs[i].plot(imu_data['Timestamp_sec'], imu_data['Frequency'], marker='o', color=color)
+    
+    # Annotate each frequency point
+    for x, y in zip(imu_data["Timestamp_sec"], imu_data["Frequency"]):
+        axs[i].text(x, y + 1, str(y), ha='center', va='bottom', fontsize=7, color=color)
 
-for i, imu in enumerate(imu_list):
-    imu_data = frequency[imu]
-    avg_freq = imu_data.mean()
-
-    axs[i].plot(
-        imu_data.index, imu_data.values,
-        marker='o', linestyle='-',
-        color=colors[i],
-        linewidth=2, markersize=7,
-        label=f'{imu}  |  Avg: {avg_freq:.2f}'
+    axs[i].set_title(
+        f"{imu} – Frequency Over Time (Avg: {avg_freq:.1f} Hz",
+        color=color,
+        fontsize=12,
     )
+    axs[i].set_ylabel("Freq (Hz)")
+    axs[i].grid(True)
+    axs[i].tick_params(axis='x', rotation=45)
 
-    # Annotate points
-    for x, y in enumerate(imu_data.values):
-        if y > 0:
-            axs[i].text(x, y + 0.2, str(y), ha='center', fontsize=9, color=colors[i], fontweight='bold')
-
-    axs[i].set_title(f'{imu} Frequency Over Time', fontsize=14, fontweight='bold', pad=10)
-    axs[i].set_ylabel('Count', fontsize=12)
-    axs[i].legend(frameon=True, loc='upper left')
-    axs[i].grid(visible=True, which='major', linestyle='--', linewidth=0.5, alpha=0.7)
-
-# X-axis shared label
-plt.xlabel('Time (HH:MM:SS)', fontsize=13)
-plt.xticks(rotation=45, fontsize=10)
-plt.suptitle('IMU Frequency Analysis Over Time', fontsize=18, fontweight='bold', y=1.02)
+axs[-1].set_xlabel("Time (seconds)")
 plt.tight_layout()
 plt.show()
