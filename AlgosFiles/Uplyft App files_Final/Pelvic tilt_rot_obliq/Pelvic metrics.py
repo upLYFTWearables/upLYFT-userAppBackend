@@ -190,7 +190,9 @@ def analyze_pelvis_imu(
 # Example usage (uncomment if you want to run this script directly)
 ###############################################################################
 if __name__ == "__main__":
-    filename_single_imu = "/Users/mahadparwaiz/Desktop/HIp isolated/walk4/data_65.txt"  # update
+    # filename_single_imu = "/Users/mahadparwaiz/Desktop/HIp isolated/walk4/data_65.txt"  # update
+    filename_single_imu = "AlgosFiles\Raw data\shank.txt"  # update
+    
     standing_time_s = 4.0
     lowpass_cutoff = 0.2
 

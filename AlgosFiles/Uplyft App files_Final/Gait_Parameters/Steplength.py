@@ -132,11 +132,11 @@ def main():
     """
     # Example file paths (adjust to your own)
     imu_files = {
-        "Left_Below_Knee": "/Users/mahadparwaiz/Desktop/test/Raw data/our own data/raw data_100Hz/walking_mahad_100Hz_141degSE/left leg low/data_3.txt",
-        "Left_Above_Knee": "/Users/mahadparwaiz/Desktop/test/Raw data/our own data/raw data_100Hz/walking_mahad_100Hz_141degSE/left leg up/data_2.txt",
-        "Right_Below_Knee": "/Users/mahadparwaiz/Desktop/test/Raw data/our own data/raw data_100Hz/walking_mahad_100Hz_141degSE/right leg low/data_3.txt",
-        "Right_Above_Knee": "/Users/mahadparwaiz/Desktop/test/Raw data/our own data/raw data_100Hz/walking_mahad_100Hz_141degSE/right leg up/data_6.txt",
-        "Pelvis": "/Users/mahadparwaiz/Desktop/test/Raw data/our own data/raw data_100Hz/walking_mahad_100Hz_141degSE/pelvis/data_2.txt"
+        "Left_Below_Knee": "F:/Quickgen Projects/upLYFT-userAppBackend/AlgosFiles/Raw data/our own data/raw data_100Hz/walking_mahad_100Hz_141degSE/left leg low/data_3.txt",
+        "Left_Above_Knee": "F:/Quickgen Project/upLYFT-userAppBackend/AlgosFiles/Raw data/our own data/raw data_100Hz/walking_mahad_100Hz_141degSE/left leg up/data_2.txt",
+        "Right_Below_Knee": "F:/Quickgen Projects/upLYFT-userAppBackend/AlgosFiles/Raw data/our own data/raw data_100Hz/walking_mahad_100Hz_141degSE/right leg low/data_3.txt",
+        "Right_Above_Knee": "F:/Quickgen Projects/upLYFT-userAppBackend/AlgosFiles/Raw data/our own data/raw data_100Hz/walking_mahad_100Hz_141degSE/right leg up/data_6.txt",
+        "Pelvis": "F:/Quickgen Projects/upLYFT-userAppBackend/AlgosFiles/Raw data/our own data/raw data_100Hz/walking_mahad_100Hz_141degSE/pelvis/data_2.txt"
     }
     
     # Known or approximate sampling frequency in Hz (if you know it).

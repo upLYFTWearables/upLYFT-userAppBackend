@@ -124,11 +124,11 @@ def shift_timestamps(time_array, shift):
 # =============================================================================
 
 # Paths to IMU data files (same as before)
-pelvis_path = "/Users/mahadparwaiz/Desktop/test/raw data_100Hz/walking_mahad_100Hz_141degSE/pelvis/data_2.txt"
-left_upper_leg_path = "/Users/mahadparwaiz/Desktop/test/raw data_100Hz/walking_mahad_100Hz_141degSE/left leg up/data_2.txt"
-left_lower_leg_path = "/Users/mahadparwaiz/Desktop/test/raw data_100Hz/walking_mahad_100Hz_141degSE/left leg low/data_3.txt"
-right_upper_leg_path = "/Users/mahadparwaiz/Desktop/test/raw data_100Hz/walking_mahad_100Hz_141degSE/right leg up/data_6.txt"
-right_lower_leg_path = "/Users/mahadparwaiz/Desktop/test/raw data_100Hz/walking_mahad_100Hz_141degSE/right leg low/data_3.txt"
+pelvis_path = "AlgosFiles/Uplyft App files_Final/Stickman/walking_mahad_100Hz_141degSE copy/pelvis/data_2.txt"
+left_upper_leg_path = "AlgosFiles/Uplyft App files_Final/Stickman/walking_mahad_100Hz_141degSE copy/left leg up/data_2.txt"
+left_lower_leg_path = "AlgosFiles/Uplyft App files_Final/Stickman/walking_mahad_100Hz_141degSE copy/left leg low/data_3.txt"
+right_upper_leg_path = "AlgosFiles/Uplyft App files_Final/Stickman/walking_mahad_100Hz_141degSE copy/right leg up/data_6.txt"
+right_lower_leg_path = "AlgosFiles/Uplyft App files_Final/Stickman/walking_mahad_100Hz_141degSE copy/right leg low/data_3.txt"
 
 # Load raw data (time in seconds, quaternions in w,x,y,z)
 time_pelvis, quat_pelvis = read_imu_csv(pelvis_path)
