@@ -96,7 +96,7 @@ class RealTimePowerMetrics:
         # Timing
         self.last_plot_update = 0
         self.last_stats_update = 0
-        self.stats_update_interval = 2.0  # Update stats every 2 seconds
+        self.stats_update_interval = 1.0  # Update stats every 2 seconds
         
         # Gait detection
         self.last_peak_time = 0

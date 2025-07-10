@@ -3,7 +3,6 @@ import socket
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 import threading
 import queue
 import pandas as pd
@@ -87,7 +86,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS (unchanged)
+# Custom CSS
 st.markdown("""
     <style>
     .stApp {
@@ -113,6 +112,23 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+def create_empty_plot(title, y_label):
+    """Create an empty Plotly figure with proper styling"""
+    fig = go.Figure()
+    fig.update_layout(
+        title=title,
+        xaxis_title="Time (s)",
+        yaxis_title=y_label,
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        font=dict(color='black'),
+        showlegend=True,
+        height=300
+    )
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+    return fig
+
 # Initialize session state
 if 'initialized' not in st.session_state:
     st.session_state.initialized = False
@@ -124,6 +140,9 @@ if 'initialized' not in st.session_state:
         'step_length': RealTimeStepLengthCalculator(),
         'frequency': RealTimeFrequencyMonitor()
     }
+    
+    # Disable signal handlers in frequency monitor
+    st.session_state.metrics['frequency'].signal_handler = lambda sig, frame: None
     
     # Initialize data buffers
     st.session_state.data_buffers = {
@@ -181,23 +200,33 @@ def main():
     with col1:
         # Stickman visualization
         st.subheader("Real-time Stickman Visualization")
-        stickman_placeholder = st.empty()
+        stickman_container = st.empty()
+        fig_stickman = create_empty_plot("Stickman", "")
+        stickman_container.plotly_chart(fig_stickman, use_container_width=True)
         
         # Pelvic metrics plot
         st.subheader("Pelvic Metrics")
-        pelvic_plot = st.empty()
+        pelvic_container = st.empty()
+        fig_pelvic = create_empty_plot("Pelvic Angles", "Degrees")
+        pelvic_container.plotly_chart(fig_pelvic, use_container_width=True)
         
         # Power metrics plot
         st.subheader("Power Metrics")
-        power_plot = st.empty()
+        power_container = st.empty()
+        fig_power = create_empty_plot("Power Output", "Watts")
+        power_container.plotly_chart(fig_power, use_container_width=True)
         
         # Step length plot
         st.subheader("Step Length")
-        step_plot = st.empty()
+        step_container = st.empty()
+        fig_step = create_empty_plot("Step Length", "Meters")
+        step_container.plotly_chart(fig_step, use_container_width=True)
         
         # Frequency plot
         st.subheader("Movement Frequency")
-        freq_plot = st.empty()
+        freq_container = st.empty()
+        fig_freq = create_empty_plot("Frequency", "Hz")
+        freq_container.plotly_chart(fig_freq, use_container_width=True)
     
     with col2:
         # Real-time metrics display

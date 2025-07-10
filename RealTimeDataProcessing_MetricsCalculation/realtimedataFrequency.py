@@ -9,6 +9,9 @@ import signal
 import sys
 import os
 import glob
+import socket
+import threading
+from collections import deque, defaultdict
 
 # Configuration
 WINDOW_SIZE = 60  # Show last 60 seconds of data
@@ -17,13 +20,22 @@ MAX_POINTS = 300  # Reduced from 1000 for better performance
 ANNOTATION_LIMIT = 5  # Only show annotations for last 5 points per IMU
 DATA_DECIMATION = 3  # Show every 3rd point to reduce congestion
 
+# UDP Configuration
+UDP_PORT = 12345
+BUFFER_SIZE = 1024
+
 class RealTimeFrequencyMonitor:
     def __init__(self):
         self.running = True
-        self.last_read_size = 0
         self.data_buffers = {}  # Store data for each IMU
         self.active_imus = set()
         self.last_update_time = time.time()
+        
+        # Real-time data structures
+        self.raw_data_buffer = defaultdict(lambda: deque(maxlen=1000))  # Raw timestamps per IMU
+        self.frequency_data = defaultdict(lambda: deque())  # Calculated frequencies per IMU (no maxlen to keep all data)
+        self.time_data = defaultdict(lambda: deque())  # Time stamps for frequency data (no maxlen to keep all data)
+        self.start_time = time.time()
         
         # Setup plot
         plt.style.use('default')
@@ -33,6 +45,11 @@ class RealTimeFrequencyMonitor:
         self.scatter_plots = {}
         self.annotations = {}
         
+        # UDP socket setup
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
+        self.sock.bind(('0.0.0.0', UDP_PORT))
+        
         # Setup signal handler
         signal.signal(signal.SIGINT, self.signal_handler)
         
@@ -40,6 +57,110 @@ class RealTimeFrequencyMonitor:
         """Handle Ctrl+C gracefully"""
         print("\nStopping frequency monitor...")
         self.running = False
+        
+    def parse_udp_data(self, data_str):
+        """Parse UDP data stream and extract IMU information"""
+        try:
+            lines = data_str.strip().split('\n')
+            parsed_data = []
+            
+            for line in lines:
+                if not line.strip():
+                    continue
+                    
+                parts = line.split(',')
+                if len(parts) >= 13:  # Ensure we have enough data fields
+                    try:
+                        imu_id = parts[2].strip()
+                        
+                        # Convert time format to timestamp
+                        time_str = parts[1].strip()
+                        try:
+                            # Try parsing as microseconds first
+                            timestamp = int(time_str) / 1e6  # Convert to seconds
+                        except ValueError:
+                            # If that fails, parse as time string
+                            try:
+                                # Parse time string and convert to seconds
+                                h, m, s = time_str.split(':')
+                                s, ms = s.split('.')
+                                total_seconds = int(h) * 3600 + int(m) * 60 + int(s) + int(ms) / 1000.0
+                                timestamp = total_seconds
+                            except Exception:
+                                timestamp = time.time()  # Fallback to current time
+                        
+                        data_point = {
+                            'imu_id': imu_id,
+                            'timestamp': timestamp,
+                            'current_time': time.time()
+                        }
+                        parsed_data.append(data_point)
+                        
+                    except (ValueError, IndexError) as e:
+                        continue
+            
+            return parsed_data
+            
+        except Exception as e:
+            print(f"Error parsing UDP data: {e}")
+            return []
+
+    def process_realtime_data(self, data_points):
+        """Process real-time data and calculate frequencies"""
+        if not data_points:
+            return
+            
+        current_time = time.time()
+        
+        # Group data by IMU
+        for data_point in data_points:
+            imu_id = data_point['imu_id']
+            timestamp = data_point['current_time']
+            
+            # Add timestamp to raw data buffer
+            self.raw_data_buffer[imu_id].append(timestamp)
+            
+            # Calculate frequency every second
+            if len(self.raw_data_buffer[imu_id]) > 0:
+                # Count packets in the last second
+                one_second_ago = current_time - 1.0
+                recent_packets = [t for t in self.raw_data_buffer[imu_id] if t >= one_second_ago]
+                frequency = len(recent_packets)
+                
+                # Update frequency data (only add new data points every second)
+                if (not self.time_data[imu_id] or 
+                    current_time - self.time_data[imu_id][-1] >= 0.8):
+                    
+                    relative_time = current_time - self.start_time
+                    self.frequency_data[imu_id].append(frequency)
+                    self.time_data[imu_id].append(relative_time)
+                    
+                    # Keep all data from start to end (no sliding window)
+                    # Comment out the sliding window logic to show complete history
+                    # while (self.time_data[imu_id] and 
+                    #        relative_time - self.time_data[imu_id][0] > WINDOW_SIZE):
+                    #     self.frequency_data[imu_id].popleft()
+                    #     self.time_data[imu_id].popleft()
+    
+    def start_udp_data_collection(self):
+        """Start collecting data from UDP socket"""
+        print(f"Listening for UDP data on port {UDP_PORT}")
+        
+        while self.running:
+            try:
+                data, addr = self.sock.recvfrom(BUFFER_SIZE)
+                data_str = data.decode('utf-8')
+                
+                # Parse UDP data
+                parsed_data = self.parse_udp_data(data_str)
+                
+                if parsed_data:
+                    # Process real-time data
+                    self.process_realtime_data(parsed_data)
+                    
+            except Exception as e:
+                if self.running:  # Only print error if we're still running
+                    print(f"Error in UDP data collection: {e}")
 
     def find_latest_csv(self):
         """Find the most recent CSV file created by UDP.py"""
@@ -59,8 +180,12 @@ class RealTimeFrequencyMonitor:
         """Initialize the plot exactly like frqcount.py"""
         n_imus = len(unique_imus)
         
+        # Clear the existing figure and set new size
+        self.fig.clear()
+        self.fig.set_size_inches(16, 3 * n_imus)
+        
         # Create subplots
-        self.fig, self.axs = plt.subplots(n_imus, 1, figsize=(16, 3 * n_imus), sharex=True)
+        self.axs = self.fig.subplots(n_imus, 1, sharex=True)
         
         # Handle single IMU case
         if n_imus == 1:
@@ -111,78 +236,36 @@ class RealTimeFrequencyMonitor:
 
     def update_plot(self, frame):
         """Update function for animation"""
-        csv_file = self.find_latest_csv()
-        if not csv_file:
-            return []
-            
         try:
-            # Get file size
-            file_size = os.path.getsize(csv_file)
             current_time = time.time()
             
-            # Only read if file has grown or enough time has passed
-            if file_size > self.last_read_size or (current_time - self.last_update_time) > 2.0:
-                # Read the CSV file
-                df = pd.read_csv(csv_file)
-                
-                # Process data exactly like frqcount.py
-                if not df.empty:
-                    # Convert timestamp to datetime format
-                    df['Timestamp'] = pd.to_datetime(df['Timestamp'], format='%H:%M:%S.%f')
-                    
-                    # Round down to the nearest second
-                    df['Timestamp_sec'] = df['Timestamp'].dt.floor('S')
-                    
-                    # Calculate frequencies per IMU per second
-                    freq_data = df.groupby(['IMU', 'Timestamp_sec']).size().reset_index(name='Frequency')
-                    
+            # Only update if enough time has passed or we have new data
+            if (current_time - self.last_update_time) > 2.0 or self.frequency_data:
+                # Process real-time data
+                if self.frequency_data:
                     # Get unique IMUs (sorted for consistent ordering)
-                    unique_imus = sorted(freq_data['IMU'].unique())
+                    unique_imus = sorted(self.frequency_data.keys())
                     
                     # Create/recreate plot if needed
                     if self.fig is None or set(unique_imus) != self.active_imus:
-                        if self.fig is not None:
-                            plt.close(self.fig)
                         self.setup_plot(unique_imus)
                         self.active_imus = set(unique_imus)
                         self.data_buffers = {}
                     
                     # Update each subplot
                     for imu in unique_imus:
-                        # Get data for this IMU
-                        imu_data = freq_data[freq_data['IMU'] == imu]
-                        
-                        if not imu_data.empty:
-                            # Calculate relative timestamps (from start of data)
-                            min_time = freq_data['Timestamp_sec'].min()
-                            timestamps = (imu_data['Timestamp_sec'] - min_time).dt.total_seconds()
-                            frequencies = imu_data['Frequency'].values
+                        # Get data for this IMU from real-time buffers
+                        if imu in self.frequency_data and self.frequency_data[imu]:
+                            timestamps = list(self.time_data[imu])
+                            frequencies = list(self.frequency_data[imu])
                             
                             # Initialize buffer if needed
                             if imu not in self.data_buffers:
                                 self.data_buffers[imu] = {'t': [], 'f': []}
                             
-                            # Replace data instead of appending (for real-time view)
-                            self.data_buffers[imu]['t'] = timestamps.tolist()
-                            self.data_buffers[imu]['f'] = frequencies.tolist()
-                            
-                            # Keep only recent data (last WINDOW_SIZE seconds)
-                            if self.data_buffers[imu]['t']:
-                                latest_time = max(self.data_buffers[imu]['t'])
-                                cutoff_time = latest_time - WINDOW_SIZE
-                                
-                                # Filter data
-                                filtered_data = [(t, f) for t, f in zip(self.data_buffers[imu]['t'], 
-                                                                       self.data_buffers[imu]['f']) 
-                                               if t >= cutoff_time]
-                                
-                                if filtered_data:
-                                    self.data_buffers[imu]['t'], self.data_buffers[imu]['f'] = zip(*filtered_data)
-                                    self.data_buffers[imu]['t'] = list(self.data_buffers[imu]['t'])
-                                    self.data_buffers[imu]['f'] = list(self.data_buffers[imu]['f'])
-                                else:
-                                    self.data_buffers[imu]['t'] = []
-                                    self.data_buffers[imu]['f'] = []
+                            # Update data buffers with real-time data
+                            self.data_buffers[imu]['t'] = timestamps
+                            self.data_buffers[imu]['f'] = frequencies
                             
                             # Decimate data for better performance
                             if len(self.data_buffers[imu]['t']) > MAX_POINTS:
@@ -228,20 +311,18 @@ class RealTimeFrequencyMonitor:
                                     fontsize=11, fontweight='bold'
                                 )
                                 
-                                # Update x-axis limits
+                                # Update x-axis limits to show all data from start to end
                                 latest_time = max(t_data)
                                 self.axs[ax_index].set_xlim(
-                                    max(0, latest_time - WINDOW_SIZE), 
+                                    0, 
                                     latest_time + 5
                                 )
                 
                 # Update tracking variables
-                self.last_read_size = file_size
                 self.last_update_time = current_time
                 
         except Exception as e:
-            if "No columns to parse from file" not in str(e):
-                print(f"Error updating plot: {e}")
+            print(f"Error updating plot: {e}")
         
         # Return all artists that need to be redrawn
         artists = []
@@ -256,18 +337,29 @@ class RealTimeFrequencyMonitor:
         try:
             print("Enhanced Real-time Frequency Monitor started")
             print("Features:")
+            print("- Direct UDP data processing")
             print("- Reduced update rate for better performance")
             print("- Cleaner annotations (last 5 points only)")
             print("- Consistent IMU colors")
-            print("- 60-second sliding window")
-            print("Waiting for UDP.py to create data file...")
+            print("- Complete data history from start to end")
+            print(f"Listening for UDP data on port {UDP_PORT}")
             print("Press Ctrl+C to stop")
+            
+            # Start UDP data collection in a separate thread
+            data_thread = threading.Thread(target=self.start_udp_data_collection)
+            data_thread.daemon = True
+            data_thread.start()
+            
+            # Create a placeholder figure to avoid multiple figures
+            self.fig, self.axs = plt.subplots(1, 1, figsize=(16, 3))
+            self.axs.text(0.5, 0.5, 'Waiting for UDP data...', ha='center', va='center', transform=self.axs.transAxes)
+            self.axs.set_title('Real-time Frequency Monitor - Waiting for Data')
             
             # Start animation
             ani = animation.FuncAnimation(
-                plt.gcf(), self.update_plot,
+                self.fig, self.update_plot,
                 interval=UPDATE_INTERVAL,
-                blit=True,
+                blit=False,  # Set to False to avoid issues with changing plot structure
                 cache_frame_data=False
             )
             
@@ -277,6 +369,8 @@ class RealTimeFrequencyMonitor:
             print(f"Error running monitor: {e}")
         finally:
             print("\nMonitor stopped.")
+            self.running = False
+            self.sock.close()
 
 if __name__ == "__main__":
     monitor = RealTimeFrequencyMonitor()

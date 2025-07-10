@@ -13,7 +13,7 @@ from scipy.signal import butter, filtfilt, find_peaks
 WINDOW_SIZE = 1000
 PLOT_WINDOW = 5.0
 FS_DEFAULT = 100
-UPDATE_INTERVAL = 10  # Changed from 50ms to 10s
+UPDATE_INTERVAL = 1  # Changed from 50ms to 10s
 
 # IMU Mapping with anatomical names
 IMU_MAPPING = {
