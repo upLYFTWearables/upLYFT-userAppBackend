@@ -1,0 +1,56 @@
+{
+  "name": "medical-rehab-dashboard-react",
+  "version": "1.0.0",
+  "description": "React-based Medical Rehabilitation Dashboard with real-time visualizations",
+  "main": "index.js",
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "dev": "npm start"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "^5.0.1",
+    "plotly.js": "^2.26.0",
+    "react-plotly.js": "^2.6.0",
+    "web-vitals": "^3.4.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.1.4",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^14.5.1"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "keywords": [
+    "medical",
+    "rehabilitation",
+    "dashboard",
+    "react",
+    "real-time",
+    "IMU",
+    "visualization",
+    "plotly"
+  ],
+  "author": "Medical Rehabilitation Team",
+  "license": "MIT"
+} 

@@ -318,4 +318,4 @@ if __name__ == "__main__":
         
     finally:
         running = False
-        print("Real-time stickman visualization stopped.") 
+        print("Real-time stickman visualization stopped.")
